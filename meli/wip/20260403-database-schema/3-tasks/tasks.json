@@ -1,0 +1,127 @@
+{
+  "feature": "database-schema",
+  "local_config": { "supabase": "container" },
+  "execution_strategy": "sequential",
+  "stats": { "total": 5, "done": 0, "by_layer": { "1": 4, "3": 1 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Extensiones y tablas base (users, agents, skill_manifests)",
+      "description": "Crear migraciones Supabase 001-004: extensiones (uuid-ossp, pg_trgm, unaccent, vector), tabla users con clerk_user_id, tabla agents con métricas separadas, tabla skill_manifests con pricing constraints.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "supabase/migrations/001_create_extensions.sql",
+        "supabase/migrations/002_create_users.sql",
+        "supabase/migrations/003_create_agents.sql",
+        "supabase/migrations/004_create_skill_manifests.sql"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Las 4 migraciones corren en orden sin errores",
+        "AC-2: users.clerk_user_id es TEXT UNIQUE NOT NULL",
+        "AC-3: agents tiene contracts_completed_count, ratings_count, rating_avg",
+        "AC-4: skill_manifests tiene constraints de pricing_model",
+        "GATE: supabase db reset completa sin errores"
+      ],
+      "references": ["database-schema spec §1-3"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Tablas transaccionales (jobs, applications, contracts, credit_transactions)",
+      "description": "Crear migraciones 005-009: jobs sin parent_contract_id, applications con manifest_id NOT NULL, contracts con snapshot contractual, ALTER jobs para parent_contract_id, credit_transactions con user_id nullable y constraint fee_or_user_required.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-001"],
+      "files": [
+        "supabase/migrations/005_create_jobs.sql",
+        "supabase/migrations/006_create_applications.sql",
+        "supabase/migrations/007_create_contracts.sql",
+        "supabase/migrations/008_add_jobs_parent_contract_id.sql",
+        "supabase/migrations/009_create_credit_transactions.sql"
+      ],
+      "acceptance_criteria": [
+        "AC-1: jobs tiene status awaiting_approval en CHECK constraint",
+        "AC-2: applications.manifest_id es NOT NULL",
+        "AC-3: contracts tiene campos de snapshot (selected_endpoint_url, pricing_model_snapshot, etc.)",
+        "AC-4: credit_transactions.user_id es nullable con CHECK (user_id IS NOT NULL OR type = 'fee')",
+        "AC-5: contracts CHECK (hiring_agent_id != hired_agent_id)",
+        "GATE: supabase db reset con todas las migraciones pasa"
+      ],
+      "references": ["database-schema spec §4-7"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "FTS, índices, triggers y RLS",
+      "description": "Crear migraciones 010-013: fts_vector (spanish) en skill_manifests, todos los índices (incluido UNIQUE parcial en stripe_session_id), triggers updated_at, políticas RLS para dashboard y lectura pública.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-002"],
+      "files": [
+        "supabase/migrations/010_add_fts_vector.sql",
+        "supabase/migrations/011_create_indexes.sql",
+        "supabase/migrations/012_create_triggers.sql",
+        "supabase/migrations/013_create_rls_policies.sql"
+      ],
+      "acceptance_criteria": [
+        "AC-1: fts_vector usa to_tsvector('spanish', capability_description)",
+        "AC-2: idx_credit_transactions_stripe_session_id es UNIQUE WHERE IS NOT NULL",
+        "AC-3: Triggers updated_at en todas las tablas excepto credit_transactions",
+        "AC-4: RLS habilitado en todas las tablas; policies de lectura pública para agents y skill_manifests",
+        "GATE: supabase db reset completo sin errores"
+      ],
+      "references": ["database-schema spec §Indices, §Triggers, §RLS"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Funciones RPC, vista de reconciliación y seed de desarrollo",
+      "description": "Crear migración 014 con funciones RPC para escrow atómico. Crear vista ledger_reconciliation. Crear seed.sql con datos de desarrollo (usuarios, agentes, manifests, jobs de ejemplo).",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-003"],
+      "files": [
+        "supabase/migrations/014_create_rpc_functions.sql",
+        "supabase/seed.sql"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Funciones RPC para hold_escrow, adjust_escrow, settle_contract ejecutables",
+        "AC-2: Vista ledger_reconciliation retorna 0 filas tras seed (balance consistente)",
+        "AC-3: seed.sql inserta al menos 2 usuarios, 3 agentes, 5 manifests",
+        "GATE: supabase db reset + seed completo; vista ledger_reconciliation vacía"
+      ],
+      "references": ["database-schema spec §RPC, §Reconciliation"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Tests de constraints y migraciones",
+      "description": "Tests unitarios: credits_balance < 0 viola constraint, hiring=hired viola constraint, FTS stemming español funciona, trigger updated_at se actualiza. Test de migración: secuencia 001-014 completa.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": ["TASK-004"],
+      "files": ["src/__tests__/database/schema.test.ts"],
+      "acceptance_criteria": [
+        "AC-1: Test de constraint credits_balance >= 0 pasa",
+        "AC-2: Test de hiring_agent_id != hired_agent_id pasa",
+        "AC-3: Test FTS 'factura' matchea 'facturas' con config spanish",
+        "GATE: vitest run --reporter verbose pasa todos los tests de DB"
+      ],
+      "references": ["database-schema spec §Testing"]
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001"],
+        "level_1": ["TASK-002"],
+        "level_2": ["TASK-003"],
+        "level_3": ["TASK-004"],
+        "level_4": ["TASK-005"]
+      }
+    }
+  }
+}

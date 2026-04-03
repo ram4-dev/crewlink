@@ -1,0 +1,117 @@
+{
+  "feature": "agent-registry",
+  "local_config": { "supabase": "container" },
+  "execution_strategy": "sequential",
+  "stats": { "total": 5, "done": 0, "by_layer": { "1": 5 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "CRUD de agentes (perfil público y propio)",
+      "description": "Implementar GET /api/agents/:id (perfil público sin datos sensibles, con contracts_completed_count y ratings_count), GET /api/agents/me (perfil completo con manifests inactivos).",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [],
+      "files": [
+        "src/app/api/agents/[id]/route.ts",
+        "src/app/api/agents/me/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: GET /:id retorna agent sin owner_user_id, clerk_user_id, agent_secret_hash",
+        "AC-2: GET /:id incluye contracts_completed_count, ratings_count, rating_avg",
+        "AC-3: GET /me incluye manifests inactivos",
+        "GATE: Test perfil público no expone datos sensibles"
+      ],
+      "references": ["agent-registry spec §GET /api/agents/:id"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Validación de Skill Manifest (Ajv + custom)",
+      "description": "Implementar validación completa de manifest con Ajv: manifestSchema, JSON Schema Draft 7 válido para input/output, profundidad máxima 5 niveles, tamaño máximo 50KB. Tags lowercase con pattern.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "src/lib/validation/manifest-validator.ts",
+        "src/lib/validation/schema-depth.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Manifest válido pasa sin errores",
+        "AC-2: input_schema inválido → errores detallados por campo",
+        "AC-3: Schema de profundidad > 5 → rechazado",
+        "AC-4: Manifest > 50KB → rechazado",
+        "GATE: Tests de validación de manifests pasan"
+      ],
+      "references": ["agent-registry spec §Validación de Manifest"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "Validación anti-SSRF de endpoint_url",
+      "description": "Implementar validateEndpointUrl: HTTPS obligatorio en producción, bloqueo de dominios CrewLink, resolución DNS + bloqueo de IPs privadas (10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.x, CGNAT, IPv6 private), bloqueo de metadata endpoints cloud.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": ["src/lib/validation/ssrf-validator.ts"],
+      "acceptance_criteria": [
+        "AC-1: HTTP en producción → error",
+        "AC-2: endpoint crewlink.io → error",
+        "AC-3: IP privada 10.x, 192.168.x → error",
+        "AC-4: 169.254.169.254 (cloud metadata) → error",
+        "GATE: Tests de SSRF pasan incluyendo DNS rebinding"
+      ],
+      "references": ["agent-registry spec §Anti-SSRF"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "CRUD de Skill Manifests (crear, actualizar, desactivar)",
+      "description": "Implementar POST /api/agents/me/manifests (crear con validación Ajv + SSRF), PUT /api/agents/me/manifests/:id (actualizar con ownership check), DELETE /api/agents/me/manifests/:id (soft-delete, bloquear si contratos activos). Embedding async opcional.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-001", "TASK-002", "TASK-003"],
+      "files": [
+        "src/app/api/agents/me/manifests/route.ts",
+        "src/app/api/agents/me/manifests/[id]/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: POST crea manifest → 201 con id",
+        "AC-2: PUT de otro agente → 403",
+        "AC-3: DELETE con contrato activo → 409 MANIFEST_HAS_ACTIVE_CONTRACTS",
+        "AC-4: DELETE sin contratos activos → soft-delete (is_active=false)",
+        "GATE: Tests CRUD de manifests pasan"
+      ],
+      "references": ["agent-registry spec §Endpoints"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Tests críticos de agent-registry",
+      "description": "Tests unitarios: rating_avg calculado con ratings_count, isPrivateIP cubre todos los rangos, schema depth checker. Tests integración: manifest válido → 201, endpoint SSRF → 400, perfil público limpio.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": ["TASK-004"],
+      "files": [
+        "src/__tests__/agents/manifest-validation.test.ts",
+        "src/__tests__/agents/ssrf.test.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Test rating_avg con ratings_count pasa",
+        "AC-2: Test isPrivateIP cubre todos los rangos definidos",
+        "AC-3: Test manifest CRUD completo pasa",
+        "GATE: vitest run pasa todos los tests de agent-registry"
+      ],
+      "references": ["agent-registry spec §Testing"]
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001", "TASK-002", "TASK-003"],
+        "level_1": ["TASK-004"],
+        "level_2": ["TASK-005"]
+      }
+    }
+  }
+}

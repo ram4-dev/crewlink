@@ -1,0 +1,111 @@
+{
+  "feature": "security",
+  "local_config": { "upstash_redis": "container" },
+  "execution_strategy": "sequential",
+  "stats": { "total": 5, "done": 0, "by_layer": { "1": 5 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Rate limiting middleware (@upstash/ratelimit)",
+      "description": "Implementar rate limiting con @upstash/ratelimit + Redis: 100 req/min general (api), 10 req/min auth, 60 req/min search. Headers X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After en respuesta 429.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "src/lib/security/rate-limit.ts",
+        "src/lib/security/rate-limit-middleware.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: 100 requests ok, 101° → 429 con Retry-After",
+        "AC-2: Auth rate limit más estricto (10/min)",
+        "AC-3: Headers X-RateLimit-* presentes en 429",
+        "GATE: Test rate limiting por tipo pasa"
+      ],
+      "references": ["security spec §Rate Limiting"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Auth lockout (10 intentos → 15 min)",
+      "description": "Implementar checkAuthLockout y recordFailedAuth con Redis: TTL 15 min tras primer fallo, lockout tras 10 intentos. Limpiar contador en login exitoso. Integrar en POST /api/auth/agent.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-001"],
+      "files": ["src/lib/security/auth-lockout.ts"],
+      "acceptance_criteria": [
+        "AC-1: 10 fallos → 11° recibe 429 AUTH_LOCKOUT con retry_after",
+        "AC-2: Login exitoso limpia contador",
+        "AC-3: Lockout expira tras 15 min",
+        "GATE: Test lockout completo pasa"
+      ],
+      "references": ["security spec §Auth Lockout"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "X-Agent-Depth header + integración",
+      "description": "Implementar envío de X-Agent-Depth header cuando CrewLink invoca endpoint_url de agentes. Validar MAX_AGENT_CHAIN_DEPTH en creación de jobs. (La lógica de cycle detection ya vive en jobs-applications.)",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [],
+      "files": ["src/lib/security/depth-tracking.ts"],
+      "acceptance_criteria": [
+        "AC-1: Header X-Agent-Depth enviado con depth_level del contrato",
+        "AC-2: MAX_AGENT_CHAIN_DEPTH configurable por env var",
+        "GATE: Test header enviado correctamente"
+      ],
+      "references": ["security spec §X-Agent-Depth"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Audit logging estructurado",
+      "description": "Implementar logAudit con tipo AuditEvent: eventos de negocio (job_created, contract_completed, escrow_held, etc.) y seguridad (auth_failed, rate_limit_hit, ssrf_blocked, etc.). JSON estructurado a console.error para Vercel Logs. Correlación por job_id, contract_id, agent_id.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "src/lib/security/audit-log.ts",
+        "src/lib/security/types.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Tipo AuditEvent con todos los eventos definidos en spec",
+        "AC-2: logAudit emite JSON a console.error",
+        "AC-3: Campos de correlación (job_id, contract_id, agent_id) presentes",
+        "GATE: Test logAudit emite JSON válido"
+      ],
+      "references": ["security spec §Logging P2.3"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Tests de seguridad",
+      "description": "Tests: rate limit 429 con headers correctos, lockout tras 10 intentos, login exitoso limpia lockout, depth validation, audit log JSON structure.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": ["TASK-002", "TASK-004"],
+      "files": [
+        "src/__tests__/security/rate-limit.test.ts",
+        "src/__tests__/security/lockout.test.ts",
+        "src/__tests__/security/audit.test.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Test rate limit headers correctos",
+        "AC-2: Test lockout 10 intentos + limpieza",
+        "AC-3: Test audit log emite formato esperado",
+        "GATE: vitest run pasa todos los tests de security"
+      ],
+      "references": ["security spec §Testing"]
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001", "TASK-003", "TASK-004"],
+        "level_1": ["TASK-002"],
+        "level_2": ["TASK-005"]
+      }
+    }
+  }
+}

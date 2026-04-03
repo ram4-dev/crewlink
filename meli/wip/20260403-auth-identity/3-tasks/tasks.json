@@ -1,0 +1,143 @@
+{
+  "feature": "auth-identity",
+  "local_config": { "supabase": "container" },
+  "execution_strategy": "sequential",
+  "stats": { "total": 6, "done": 0, "by_layer": { "1": 6 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Setup Clerk + webhook de sincronización de usuarios",
+      "description": "Configurar Clerk (SignIn, UserButton). Implementar POST /api/webhooks/clerk con verificación svix. Manejar user.created (INSERT users con clerk_user_id + generar Owner API Key), user.updated y user.deleted (soft-delete).",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "src/app/api/webhooks/clerk/route.ts",
+        "src/lib/auth/api-key.ts",
+        "src/app/(auth)/sign-in/[[...sign-in]]/page.tsx",
+        "src/middleware.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Webhook user.created inserta user con clerk_user_id TEXT + genera api_key_hash SHA-256",
+        "AC-2: Webhook user.deleted hace soft-delete (is_active = false)",
+        "AC-3: Firma svix verificada; request sin firma válida → 400",
+        "GATE: Test webhook user.created → user insertado con clerk_user_id correcto"
+      ],
+      "references": ["auth-identity spec §Webhook"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Middleware withSessionAuth (dashboard Clerk)",
+      "description": "Implementar withSessionAuth: auth() de Clerk → clerk_user_id → SELECT users WHERE clerk_user_id → adjuntar users.id al context. Aplicar a todas las rutas /api/dashboard/*.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": ["TASK-001"],
+      "files": ["src/lib/auth/session-auth.ts"],
+      "acceptance_criteria": [
+        "AC-1: withSessionAuth resuelve clerk_user_id → users.id (UUID interno)",
+        "AC-2: Sin sesión Clerk → 401 AUTH_MISSING",
+        "AC-3: clerk_user_id no sincronizado → 401",
+        "GATE: Test withSessionAuth con mock de Clerk pasa"
+      ],
+      "references": ["auth-identity spec §withSessionAuth"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "Registro de agentes (POST /api/agents/register)",
+      "description": "Implementar auto-registro: recibir owner_api_key, validar hash, crear agente + agent_secret + manifest inicial, firmar JWT con jose (HS256, 24h). Retornar agent_secret una sola vez.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "High",
+      "depends_on": ["TASK-001"],
+      "files": [
+        "src/app/api/agents/register/route.ts",
+        "src/lib/auth/jwt.ts",
+        "src/lib/auth/agent-secret.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: API key válida → 201 con agent_id, agent_secret, jwt, manifest_id",
+        "AC-2: API key inválida → 401 AUTH_INVALID_API_KEY",
+        "AC-3: JWT payload contiene sub=agent_id y owner_user_id=users.id (no clerk_user_id)",
+        "AC-4: agent_secret_hash es SHA-256 del secret",
+        "GATE: Test registro completo pasa con verificación de JWT"
+      ],
+      "references": ["auth-identity spec §POST /api/agents/register"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Login y refresh de agentes (POST /api/auth/agent)",
+      "description": "Implementar POST /api/auth/agent (agent_id + secret → JWT) con timingSafeEqual. Implementar POST /api/auth/agent/refresh. Integrar lockout de seguridad (10 intentos → 15 min).",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-003"],
+      "files": [
+        "src/app/api/auth/agent/route.ts",
+        "src/app/api/auth/agent/refresh/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Secret correcto → JWT válido",
+        "AC-2: Secret incorrecto → 401 AUTH_INVALID + incrementa lockout",
+        "AC-3: Agente inactivo → 401 AUTH_AGENT_INACTIVE",
+        "AC-4: Refresh con JWT válido → nuevo JWT",
+        "GATE: Test login + refresh pasan"
+      ],
+      "references": ["auth-identity spec §POST /api/auth/agent"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Middleware withAgentAuth + withOwnershipCheck",
+      "description": "Implementar withAgentAuth: extraer Bearer token, jose.jwtVerify, verificar agente activo (cache 60s), adjuntar agentId y ownerUserId al context. Implementar withOwnershipCheck para validar que el recurso pertenece al agente.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": ["TASK-004"],
+      "files": [
+        "src/lib/auth/agent-auth.ts",
+        "src/lib/auth/ownership-check.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Request sin header → 401 AUTH_MISSING",
+        "AC-2: JWT expirado → 401 AUTH_INVALID",
+        "AC-3: Agente inactivo → 401",
+        "AC-4: Recurso de otro agente → 403 AUTHZ_FORBIDDEN",
+        "GATE: Tests de middleware pasan"
+      ],
+      "references": ["auth-identity spec §Middleware"]
+    },
+    {
+      "id": "TASK-006",
+      "title": "Tests críticos de auth",
+      "description": "Tests unitarios: JWT contiene owner_user_id (no clerk_user_id), timingSafeEqual usado en comparación de hashes, API key format crewlink_ prefix. Tests de integración: flujo completo registro → login → acceso con JWT.",
+      "status": "pending",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": ["TASK-005"],
+      "files": [
+        "src/__tests__/auth/jwt.test.ts",
+        "src/__tests__/auth/middleware.test.ts",
+        "src/__tests__/auth/registration.test.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Test JWT payload tiene owner_user_id=users.id",
+        "AC-2: Test timingSafeEqual en comparación de hashes",
+        "AC-3: Test flujo completo registro → login → protected endpoint",
+        "GATE: vitest run pasa todos los tests de auth"
+      ],
+      "references": ["auth-identity spec §Testing"]
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001"],
+        "level_1": ["TASK-002", "TASK-003"],
+        "level_2": ["TASK-004"],
+        "level_3": ["TASK-005"],
+        "level_4": ["TASK-006"]
+      }
+    }
+  }
+}
