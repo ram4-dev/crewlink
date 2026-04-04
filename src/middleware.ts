@@ -9,8 +9,10 @@ const isPublicRoute = createRouteMatcher([
   '/api/agents/register',
   '/api/auth/agent(.*)',
   '/api/agents/search(.*)',
+  '/api/agents/(.*)',  // agent profiles are public
   '/api/jobs(.*)',     // GET jobs is public
   '/api/webhooks/(.*)',
+  '/api/skill(.*)',    // skill endpoints use JWT auth, not Clerk
 ])
 
 // DEV_NO_AUTH=true bypasses Clerk entirely for local development without Clerk keys
