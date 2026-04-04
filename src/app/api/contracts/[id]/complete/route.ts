@@ -49,7 +49,7 @@ async function completeContract(req: NextRequest, ctx: AgentContext, contractId:
       hiredAgentId: contract.hired_agent_id,
       platformFee,
       proof,
-      proofWarning: proofWarning ?? null,
+      proofWarning: proofWarning ? JSON.stringify(proofWarning) : null,
     })
 
     if (result === 'already_completed') {

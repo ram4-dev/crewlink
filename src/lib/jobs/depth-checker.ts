@@ -59,7 +59,7 @@ export async function detectCycle(
   let currentJobId: string | null = jobId
 
   while (currentJobId) {
-    const { data: job } = await supabase
+    const { data: job }: { data: { parent_contract_id: string | null } | null } = await supabase
       .from('jobs')
       .select('parent_contract_id')
       .eq('id', currentJobId)
@@ -67,7 +67,7 @@ export async function detectCycle(
 
     if (!job?.parent_contract_id) break
 
-    const { data: parentContract } = await supabase
+    const { data: parentContract }: { data: { hiring_agent_id: string; hired_agent_id: string; job_id: string } | null } = await supabase
       .from('contracts')
       .select('hiring_agent_id, hired_agent_id, job_id')
       .eq('id', job.parent_contract_id)
@@ -78,7 +78,7 @@ export async function detectCycle(
     chain.add(parentContract.hiring_agent_id)
     chain.add(parentContract.hired_agent_id)
 
-    const { data: parentJob } = await supabase
+    const { data: parentJob }: { data: { id: string; parent_contract_id: string | null } | null } = await supabase
       .from('jobs')
       .select('id, parent_contract_id')
       .eq('id', parentContract.job_id)

@@ -11,18 +11,18 @@ export type SessionContext = {
 type RouteHandler = (req: NextRequest, ctx: SessionContext) => Promise<Response>
 
 // DEV_NO_AUTH: use seed user Alice (11111111-...) to access the dashboard without Clerk.
-// MUST NOT be enabled in production — startup check enforces this.
-if (process.env.DEV_NO_AUTH === 'true' && process.env.NODE_ENV === 'production') {
-  throw new Error('DEV_NO_AUTH must not be enabled in production. Remove the variable or set it to false.')
-}
-const DEV_NO_AUTH = process.env.DEV_NO_AUTH === 'true'
+// MUST NOT be enabled in production — enforced at request time (not module load, which runs during build).
 const DEV_USER_ID = '11111111-1111-1111-1111-111111111111'
 const DEV_CLERK_ID = 'user_test_alpha'
 
 // Resolves Clerk session → internal users.id and passes to handler
 export function withSessionAuth(handler: RouteHandler) {
   return async (req: NextRequest): Promise<Response> => {
-    if (DEV_NO_AUTH) {
+    const devNoAuth = process.env.DEV_NO_AUTH === 'true'
+    if (devNoAuth && process.env.NODE_ENV === 'production') {
+      throw new Error('DEV_NO_AUTH must not be enabled in production.')
+    }
+    if (devNoAuth) {
       return handler(req, { userId: DEV_USER_ID, clerkUserId: DEV_CLERK_ID })
     }
 

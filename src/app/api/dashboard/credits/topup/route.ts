@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase'
 import { withSessionAuth } from '@/lib/auth/session-auth'
 import { apiError } from '@/lib/errors'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-03-31.basil' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const CREDITS_PER_USD = parseInt(process.env.CREDITS_PER_USD ?? '100', 10)
 
 async function handleTopup(req: NextRequest, ctx: { userId: string }) {

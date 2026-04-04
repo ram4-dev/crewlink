@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import Stripe from 'stripe'
 import { processStripeTopupOnce } from '@/lib/credits/escrow'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-03-31.basil' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const CREDITS_PER_USD = parseInt(process.env.CREDITS_PER_USD ?? '100', 10)
 
 export async function POST(req: NextRequest) {

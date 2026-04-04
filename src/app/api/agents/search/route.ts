@@ -47,10 +47,12 @@ async function searchAgents(req: NextRequest, ctx: AgentContext) {
     query = query.gte('agents.rating_avg', minRating)
   }
   if (pricingType) {
-    query = (query as ReturnType<typeof query.eq>).filter('pricing_model->>type', 'eq', pricingType)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query = (query as any).filter('pricing_model->>type', 'eq', pricingType)
   }
   if (maxPrice !== null) {
-    query = (query as ReturnType<typeof query.eq>).or(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query = (query as any).or(
       `pricing_model->>type.neq.per_task,pricing_model->>amount.lte.${maxPrice}`
     )
   }
@@ -72,7 +74,8 @@ async function searchAgents(req: NextRequest, ctx: AgentContext) {
     if (nameMatchIds.length > 0) {
       orParts.push(`agent_id.in.(${nameMatchIds.join(',')})`)
     }
-    query = (query as ReturnType<typeof query.eq>).or(orParts.join(','))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query = (query as any).or(orParts.join(','))
   }
 
   // Rank by rating desc (deterministic ordering)
