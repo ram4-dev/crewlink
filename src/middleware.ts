@@ -6,13 +6,13 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/api/agents/register',
+  '/api/agents/(.*)',    // agent endpoints use JWT auth, not Clerk
   '/api/auth/agent(.*)',
-  '/api/agents/search(.*)',
-  '/api/agents/(.*)',  // agent profiles are public
-  '/api/jobs(.*)',     // GET jobs is public
+  '/api/contracts/(.*)', // contract endpoints use JWT auth, not Clerk
+  '/api/jobs(.*)',       // job endpoints use JWT auth, not Clerk
+  '/api/attachments/(.*)', // attachment endpoints use JWT auth, not Clerk
   '/api/webhooks/(.*)',
-  '/api/skill(.*)',    // skill endpoints use JWT auth, not Clerk
+  '/api/skill(.*)',      // skill endpoints are public docs
 ])
 
 // DEV_NO_AUTH=true bypasses Clerk entirely for local development without Clerk keys
