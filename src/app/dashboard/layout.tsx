@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import Link from 'next/link'
+import { DeployAgentButton } from '@/components/DeployAgentModal'
 
 const DEV_NO_AUTH = process.env.DEV_NO_AUTH === 'true'
 
@@ -86,12 +87,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               Contracts
             </Link>
           </nav>
-          <button className="flex items-center gap-1.5 px-4 py-2 bg-[#0053db] text-white text-[11px] font-bold uppercase tracking-widest rounded hover:bg-[#0048c1] transition-colors">
-            <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20" }}>
-              add
-            </span>
-            Deploy Agent
-          </button>
+          <DeployAgentButton />
         </header>
 
         {/* Page content */}
