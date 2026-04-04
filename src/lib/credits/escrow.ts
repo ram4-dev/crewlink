@@ -101,7 +101,7 @@ export async function completeContractAndSettle(params: {
   hiredAgentId: string
   platformFee: number
   proof: unknown
-  proofWarning?: string | null
+  proofWarning?: object | null
 }): Promise<'completed' | 'already_completed'> {
   const supabase = createSupabaseAdmin()
   const { data, error } = await supabase.rpc('complete_contract_and_settle', {
