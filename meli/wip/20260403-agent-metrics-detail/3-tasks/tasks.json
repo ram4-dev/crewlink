@@ -1,0 +1,135 @@
+{
+  "feature": "agent-metrics-detail",
+  "local_config": {
+    "mysql": null,
+    "kvs": null,
+    "bigqueue": null
+  },
+  "stats": { "total": 7, "done": 7, "by_layer": { "1": 7, "2": 0, "3": 0 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "API endpoint: detalle de agente para el owner",
+      "description": "Crear GET /api/dashboard/agents/:id que retorna el agente con ownership validation (owner_user_id = session.userId), todos sus manifests (activos e inactivos), y los últimos 20 contratos donde participa como hiring o hired, con job_title y counterpart_name.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": [],
+      "files": ["app/api/dashboard/agents/[id]/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: Retorna agente propio con manifests e historial de contratos",
+        "AC-2: Retorna 404 para agente que no pertenece al owner",
+        "AC-3: Historial limitado a 20 contratos, ordenados por created_at DESC",
+        "AC-4: Cada contrato incluye role (hiring/hired), counterpart_name, job_title, monto, estado",
+        "GATE: curl localhost retorna 200 con estructura esperada"
+      ],
+      "references": ["US-1"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Enriquecer perfil público API del agente",
+      "description": "Modificar GET /api/agents/:id para agregar active_manifests_count, created_at, y recent_completed_contracts (últimos 5 contratos completados donde fue hired, sin montos).",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": [],
+      "files": ["app/api/agents/[id]/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: Response incluye active_manifests_count como número",
+        "AC-2: Response incluye array recent_completed_contracts con máximo 5 items",
+        "AC-3: Contratos recientes NO exponen montos (budget_credits, escrow_credits)",
+        "AC-4: Solo muestra contratos donde el agente fue hired y status=completed",
+        "GATE: curl localhost retorna estructura enriquecida"
+      ],
+      "references": ["US-3"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "Página de detalle del agente en dashboard",
+      "description": "Crear app/dashboard/agents/[id]/page.tsx como Server Component. Muestra header con nombre/framework/estado, tarjetas de métricas (rating, contratos, calificaciones), lista de skills, y tabla de contratos recientes. Consume GET /api/dashboard/agents/:id.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-001"],
+      "files": ["app/dashboard/agents/[id]/page.tsx"],
+      "acceptance_criteria": [
+        "AC-1: Muestra métricas del agente (rating_avg, contracts_completed_count, ratings_count)",
+        "AC-2: Lista skills activos e inactivos con badge de estado",
+        "AC-3: Tabla de contratos recientes con job_title, contraparte, monto, estado, fecha",
+        "AC-4: Botón 'Volver a Agentes' navega a /dashboard/agents",
+        "GATE: página renderiza correctamente en /dashboard/agents/:id"
+      ],
+      "references": ["US-1"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Página de perfil público del agente",
+      "description": "Crear app/agents/[id]/page.tsx como Server Component público (sin auth). Muestra nombre, framework, métricas, skills activos. Si agente no existe o inactivo → notFound(). Incluye generateMetadata() para SEO con Open Graph tags.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": [],
+      "files": ["app/agents/[id]/page.tsx"],
+      "acceptance_criteria": [
+        "AC-1: Página accesible sin login",
+        "AC-2: Muestra métricas públicas y skills activos",
+        "AC-3: Badge 'Nuevo' si ratings_count === 0",
+        "AC-4: Agente inactivo o inexistente → 404",
+        "AC-5: generateMetadata() genera title y OG tags dinámicos",
+        "GATE: página renderiza en /agents/:id sin autenticación"
+      ],
+      "references": ["US-2"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Navegación desde lista de agentes al detalle",
+      "description": "Modificar app/dashboard/agents/page.tsx para que el nombre de cada agente sea un Link clickeable a /dashboard/agents/:id.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-003"],
+      "files": ["app/dashboard/agents/page.tsx"],
+      "acceptance_criteria": [
+        "AC-1: Nombre del agente en la lista es un link clickeable",
+        "AC-2: Click navega a /dashboard/agents/:id correcto",
+        "GATE: navegación funciona end-to-end"
+      ],
+      "references": ["US-4"]
+    },
+    {
+      "id": "TASK-006",
+      "title": "Tests del endpoint owner detail",
+      "description": "Tests de integración para GET /api/dashboard/agents/:id: retorna agente propio, 404 para ajeno, historial limitado a 20, no expone datos de otros owners.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-001"],
+      "files": ["__tests__/api/dashboard/agents/[id]/route.test.ts"],
+      "acceptance_criteria": [
+        "AC-1: Test agente propio → 200 con manifests e historial",
+        "AC-2: Test agente ajeno → 404",
+        "AC-3: Test historial limitado a 20 contratos",
+        "GATE: vitest pasa"
+      ],
+      "references": ["US-1"]
+    },
+    {
+      "id": "TASK-007",
+      "title": "Tests del endpoint público enriquecido",
+      "description": "Tests de integración para GET /api/agents/:id enriquecido: incluye active_manifests_count y recent_completed_contracts, no expone montos.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "files": ["__tests__/api/agents/[id]/route.test.ts"],
+      "acceptance_criteria": [
+        "AC-1: Response incluye active_manifests_count",
+        "AC-2: recent_completed_contracts tiene máximo 5 items",
+        "AC-3: Contratos no exponen montos",
+        "GATE: vitest pasa"
+      ],
+      "references": ["US-3"]
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001", "TASK-002", "TASK-004"],
+        "level_1": ["TASK-003", "TASK-005", "TASK-006", "TASK-007"]
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0053db;
+  --color-primary-dim: #0048c1;
+  --color-on-primary: #f8f7ff;
+  --color-primary-container: #dbe1ff;
+  --color-on-primary-container: #0048bf;
+  --color-primary-fixed: #dbe1ff;
+  --color-primary-fixed-dim: #c7d3ff;
+  --color-on-primary-fixed: #003798;
+  --color-on-primary-fixed-variant: #0050d4;
+  --color-inverse-primary: #618bff;
+  --color-secondary: #526074;
+  --color-secondary-dim: #465468;
+  --color-on-secondary: #f8f8ff;
+  --color-secondary-container: #d5e3fc;
+  --color-on-secondary-container: #455367;
+  --color-secondary-fixed: #d5e3fc;
+  --color-secondary-fixed-dim: #c7d5ed;
+  --color-on-secondary-fixed: #324053;
+  --color-on-secondary-fixed-variant: #4e5c71;
+  --color-tertiary: #575f75;
+  --color-tertiary-dim: #4b5369;
+  --color-on-tertiary: #f9f8ff;
+  --color-tertiary-container: #dae2fd;
+  --color-on-tertiary-container: #4a5167;
+  --color-tertiary-fixed: #dae2fd;
+  --color-tertiary-fixed-dim: #ccd4ee;
+  --color-on-tertiary-fixed: #373f54;
+  --color-on-tertiary-fixed-variant: #535b71;
+  --color-surface: #f7f9fb;
+  --color-surface-dim: #cfdce3;
+  --color-surface-bright: #f7f9fb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f0f4f7;
+  --color-surface-container: #e8eff3;
+  --color-surface-container-high: #e1e9ee;
+  --color-surface-container-highest: #d9e4ea;
+  --color-surface-variant: #d9e4ea;
+  --color-surface-tint: #0053db;
+  --color-on-surface: #2a3439;
+  --color-on-surface-variant: #566166;
+  --color-inverse-surface: #0b0f10;
+  --color-inverse-on-surface: #9a9d9f;
+  --color-background: #f7f9fb;
+  --color-on-background: #2a3439;
+  --color-outline: #717c82;
+  --color-outline-variant: #a9b4b9;
+  --color-error: #9e3f4e;
+  --color-on-error: #fff7f7;
+  --color-error-container: #ff8b9a;
+  --color-on-error-container: #782232;
+  --color-error-dim: #4f0116;
+
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+@layer base {
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+}
+
+body {
+  font-family: Inter, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+}

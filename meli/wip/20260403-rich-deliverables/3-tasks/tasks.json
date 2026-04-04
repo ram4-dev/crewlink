@@ -1,0 +1,267 @@
+{
+  "feature": "rich-deliverables",
+  "local_config": {
+    "mysql": null,
+    "kvs": null,
+    "bigqueue": null
+  },
+  "execution_strategy": "batched",
+  "stats": { "total": 13, "done": 13, "by_layer": { "1": 10, "2": 0, "3": 3 } },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Migration: tabla attachments + storage buckets",
+      "description": "Crear migración 017_create_attachments.sql con la tabla attachments (id, job_id, contract_id, uploaded_by_agent_id, storage_bucket, storage_path, original_filename, mime_type, file_size_bytes, status, label, created_at, updated_at) + CHECK constraints + indexes parciales + INSERT de los 2 buckets privados en storage.buckets.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": [],
+      "complexity": "Low",
+      "files": ["supabase/migrations/017_create_attachments.sql"],
+      "acceptance_criteria": [
+        "AC-1: Tabla attachments creada con todos los campos del spec técnico",
+        "AC-2: CHECK constraint chk_single_parent (job_id XOR contract_id) funciona",
+        "AC-3: CHECK constraint chk_status (pending/uploaded) funciona",
+        "AC-4: Indexes parciales creados (idx_attachments_job, idx_attachments_contract, idx_attachments_pending)",
+        "AC-5: Buckets job-attachments y contract-deliverables insertados con public=false y file_size_limit=52428800",
+        "GATE: supabase db reset ejecuta sin errores"
+      ],
+      "references": ["A-20", "A-21"]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Utilidades de storage compartidas",
+      "description": "Crear src/lib/storage/upload.ts con constantes (MAX_FILE_SIZE, ALLOWED_MIME_TYPES, MAX_ATTACHMENTS_PER_PARENT) y funciones: validateFileMetadata, createSignedUploadUrl, createSignedDownloadUrl, buildStoragePath, sanitizeFilename.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-001"],
+      "complexity": "Medium",
+      "files": ["src/lib/storage/upload.ts"],
+      "acceptance_criteria": [
+        "AC-1: validateFileMetadata rechaza MIME types fuera del whitelist",
+        "AC-2: validateFileMetadata rechaza archivos > 50MB",
+        "AC-3: sanitizeFilename elimina path traversal y caracteres especiales, preserva extensión",
+        "AC-4: buildStoragePath genera paths con UUID prefix para evitar colisiones",
+        "AC-5: createSignedUploadUrl y createSignedDownloadUrl wrappean la API de Supabase Storage",
+        "GATE: unit tests pasan"
+      ],
+      "references": ["A-20", "A-21", "A-22"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "API: job attachments (POST request + GET list)",
+      "description": "Crear src/app/api/jobs/[id]/attachments/route.ts. POST: valida permisos (solo poster_agent), job open, conteo atómico <= 5, genera presigned upload URL, inserta registro pending. GET: lista attachments uploaded del job para cualquier agente autenticado.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Medium",
+      "files": ["src/app/api/jobs/[id]/attachments/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: POST solo permite al poster_agent del job → 403 para otros",
+        "AC-2: POST rechaza si job no está open → 409",
+        "AC-3: POST rechaza si >= 5 attachments uploaded → 409 MAX_ATTACHMENTS_REACHED",
+        "AC-4: POST retorna presigned upload URL + attachment metadata con status pending",
+        "AC-5: GET retorna solo attachments con status='uploaded' ordenados por created_at",
+        "GATE: curl tests pasan contra servidor local"
+      ],
+      "references": ["A-20"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "API: contract attachments (POST request + GET list)",
+      "description": "Crear src/app/api/contracts/[id]/attachments/route.ts. POST: valida permisos (solo hired_agent), contrato active, conteo atómico <= 5, genera presigned upload URL. GET: lista deliverables uploaded solo para participantes del contrato.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Medium",
+      "files": ["src/app/api/contracts/[id]/attachments/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: POST solo permite al hired_agent → 403 para otros",
+        "AC-2: POST rechaza si contrato no está active → 409",
+        "AC-3: POST rechaza si >= 5 attachments → 409",
+        "AC-4: POST retorna presigned upload URL + metadata",
+        "AC-5: GET solo accesible por hiring_agent o hired_agent → 403 para otros",
+        "GATE: curl tests pasan contra servidor local"
+      ],
+      "references": ["A-21"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "API: confirm upload",
+      "description": "Crear src/app/api/attachments/[id]/confirm/route.ts. POST: verifica que el archivo existe en Storage, valida Content-Type real vs MIME declarado, valida tamaño real, marca como 'uploaded'. Si validación falla, elimina archivo de Storage y registro de DB.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Medium",
+      "files": ["src/app/api/attachments/[id]/confirm/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: Solo el agente que creó el attachment puede confirmar → 403",
+        "AC-2: Verifica archivo existe en Storage → 400 FILE_NOT_UPLOADED si no",
+        "AC-3: Valida Content-Type real contra whitelist → elimina y 400 si inválido",
+        "AC-4: Valida tamaño real <= MAX_FILE_SIZE → elimina y 400 si excede",
+        "AC-5: Marca status='uploaded' y actualiza file_size_bytes con tamaño real",
+        "AC-6: Rechaza si ya está confirmed → 409",
+        "GATE: curl tests pasan"
+      ],
+      "references": ["A-20", "A-21"]
+    },
+    {
+      "id": "TASK-006",
+      "title": "API: download attachment (signed URL)",
+      "description": "Crear src/app/api/attachments/[id]/download/route.ts. GET: valida permisos según parent (job=cualquier agente, contract=solo participantes), genera signed download URL con 5 min de expiración.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Low",
+      "files": ["src/app/api/attachments/[id]/download/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: Job attachments accesibles por cualquier agente activo",
+        "AC-2: Contract attachments solo accesibles por hiring/hired agent → 403 para otros",
+        "AC-3: Solo attachments con status='uploaded' → 404 para pending",
+        "AC-4: Retorna signed URL con expires_in: 300",
+        "GATE: signed URL permite descarga directa del archivo"
+      ],
+      "references": ["A-22"]
+    },
+    {
+      "id": "TASK-007",
+      "title": "API: dashboard contract detail",
+      "description": "Crear src/app/api/dashboard/contracts/[id]/route.ts. GET con session auth: retorna contrato completo + job info + proof + attachments con signed URLs. Solo accessible por owner de alguno de los agentes del contrato.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Medium",
+      "files": ["src/app/api/dashboard/contracts/[id]/route.ts"],
+      "acceptance_criteria": [
+        "AC-1: Retorna contrato con todos los campos (incluyendo proof, proof_validation_warning)",
+        "AC-2: Incluye job title y description",
+        "AC-3: Incluye attachments con signed URLs generados",
+        "AC-4: Solo accessible por owner de hiring o hired agent → 403 para otros owners",
+        "GATE: response incluye signed URLs funcionales"
+      ],
+      "references": ["H-05"]
+    },
+    {
+      "id": "TASK-008",
+      "title": "Dashboard: página detalle de contrato",
+      "description": "Crear src/app/dashboard/contracts/[id]/page.tsx. Muestra info del contrato, proof JSON formateado, lista de deliverables (imágenes con preview inline, otros archivos con icono+descarga), validation warnings, y botones approve/reject si pending_approval.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-007"],
+      "complexity": "Medium",
+      "files": ["src/app/dashboard/contracts/[id]/page.tsx"],
+      "acceptance_criteria": [
+        "AC-1: Muestra header con status pill, job title, agents, credits, fecha",
+        "AC-2: Sección Proof muestra JSON formateado (o 'No proof submitted')",
+        "AC-3: Sección Deliverables muestra imágenes como <img> inline (max-height 200px)",
+        "AC-4: Otros archivos muestran nombre + tamaño + botón Download que abre signed URL",
+        "AC-5: Muestra validation warnings si existen",
+        "AC-6: Botones Approve/Reject visibles si pending_approval",
+        "AC-7: Link 'Back to Contracts' funciona",
+        "GATE: página renderiza correctamente con datos reales"
+      ],
+      "references": ["H-05"]
+    },
+    {
+      "id": "TASK-009",
+      "title": "Dashboard: modificar lista de contratos",
+      "description": "Modificar src/app/dashboard/contracts/page.tsx y src/app/api/dashboard/contracts/route.ts. Agregar columna 'Files' con conteo de attachments. Hacer cada fila clickeable navegando a /dashboard/contracts/:id.",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-008"],
+      "complexity": "Low",
+      "files": [
+        "src/app/dashboard/contracts/page.tsx",
+        "src/app/api/dashboard/contracts/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: API retorna attachments_count por contrato",
+        "AC-2: Tabla muestra columna 'Files' con conteo (ej: '3 files' o '—')",
+        "AC-3: Click en fila navega a /dashboard/contracts/:id",
+        "GATE: lista de contratos muestra conteo correcto y navegación funciona"
+      ],
+      "references": ["H-05"]
+    },
+    {
+      "id": "TASK-010",
+      "title": "Unit tests: utilidades de storage",
+      "description": "Crear tests unitarios para src/lib/storage/upload.ts. Cubrir: validateFileMetadata (MIME whitelist, size limit), sanitizeFilename (path traversal, caracteres especiales, extensiones), buildStoragePath (UUID prefix, formato correcto).",
+      "status": "completed",
+      "layer": 1,
+      "depends_on": ["TASK-002"],
+      "complexity": "Low",
+      "files": ["src/__tests__/unit/storage-upload.test.ts"],
+      "acceptance_criteria": [
+        "AC-1: Tests cubren MIME types válidos e inválidos",
+        "AC-2: Tests cubren file size dentro y fuera del límite",
+        "AC-3: Tests cubren sanitización de filenames peligrosos (../, \\, caracteres unicode)",
+        "AC-4: Tests cubren buildStoragePath genera formato correcto",
+        "GATE: vitest pasa todos los tests"
+      ],
+      "references": ["A-20", "A-21"]
+    },
+    {
+      "id": "TASK-011",
+      "title": "Quality: code review",
+      "description": "Revisión de código de todos los archivos implementados. Verificar patrones consistentes con el codebase existente, manejo de errores, naming conventions, y adherencia al spec técnico.",
+      "status": "completed",
+      "layer": 3,
+      "depends_on": ["TASK-009", "TASK-010"],
+      "complexity": "Low",
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: Código sigue patrones existentes (withAgentAuth, withSessionAuth, apiError)",
+        "AC-2: Todos los endpoints tienen manejo de errores consistente",
+        "AC-3: No hay código duplicado entre job y contract attachment routes"
+      ],
+      "references": []
+    },
+    {
+      "id": "TASK-012",
+      "title": "Quality: performance review",
+      "description": "Verificar que las queries a attachments usan los indexes creados. Verificar que el conteo atómico no introduce locks excesivos. Verificar que signed URLs no se generan innecesariamente.",
+      "status": "completed",
+      "layer": 3,
+      "depends_on": ["TASK-009", "TASK-010"],
+      "complexity": "Low",
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: Queries usan indexes parciales (EXPLAIN muestra index scan)",
+        "AC-2: SELECT FOR UPDATE no crea deadlocks en uso normal",
+        "AC-3: Dashboard detail genera signed URLs solo para attachments existentes"
+      ],
+      "references": []
+    },
+    {
+      "id": "TASK-013",
+      "title": "Quality: security review",
+      "description": "Verificar que todos los endpoints validan permisos correctamente. Verificar que filenames están sanitizados contra path traversal. Verificar que presigned URLs tienen expiración correcta. Verificar que MIME whitelist no tiene bypass.",
+      "status": "completed",
+      "layer": 3,
+      "depends_on": ["TASK-009", "TASK-010"],
+      "complexity": "Low",
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: Ningún endpoint permite acceso sin autenticación",
+        "AC-2: Ownership validation funciona en todos los endpoints",
+        "AC-3: sanitizeFilename previene path traversal (../, \\, null bytes)",
+        "AC-4: MIME whitelist no incluye application/octet-stream",
+        "AC-5: Presigned URLs expiran en <= 5 minutos"
+      ],
+      "references": []
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": ["TASK-001"],
+        "level_1": ["TASK-002"],
+        "level_2": ["TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-010"],
+        "level_3": ["TASK-008"],
+        "level_4": ["TASK-009"]
+      },
+      "3": {
+        "level_0": ["TASK-011", "TASK-012", "TASK-013"]
+      }
+    }
+  }
+}
