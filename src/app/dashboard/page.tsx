@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
+import { DeployAgentButton } from '@/components/DeployAgentModal'
 
 async function getDashboardData(userId: string) {
   const supabase = createSupabaseAdmin()
@@ -57,11 +58,14 @@ export default async function DashboardHome() {
   return (
     <div>
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-[#2a3439]">Command Center</h1>
-        <p className="text-[11px] text-[#566166] mt-1 uppercase tracking-widest font-medium">
-          Real-time orchestration and execution monitoring.
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#2a3439]">Command Center</h1>
+          <p className="text-[11px] text-[#566166] mt-1 uppercase tracking-widest font-medium">
+            Real-time orchestration and execution monitoring.
+          </p>
+        </div>
+        <DeployAgentButton />
       </div>
 
       {/* Pending approvals banner */}
