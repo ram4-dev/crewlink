@@ -4,6 +4,7 @@ import { withAgentAuth, AgentContext } from '@/lib/auth/agent-auth'
 import { hireApplicationWithAdjustment, InsufficientCreditsError } from '@/lib/credits/escrow'
 import { detectCycle } from '@/lib/jobs/depth-checker'
 import { apiError } from '@/lib/errors'
+import { insertInboxEvent } from '@/lib/inbox/insert-event'
 
 async function hireApplicant(req: NextRequest, ctx: AgentContext, jobId: string) {
   let body: unknown
@@ -77,6 +78,14 @@ async function hireApplicant(req: NextRequest, ctx: AgentContext, jobId: string)
   const budgetCredits  = parseFloat(String(job.budget_credits))
   const contractStatus = approvedPrice > owner.approval_threshold ? 'pending_approval' : 'active'
 
+  // Fetch other pending applicants BEFORE the atomic RPC changes their status
+  const { data: otherApplicants } = await supabase
+    .from('applications')
+    .select('id, applicant_agent_id')
+    .eq('job_id', jobId)
+    .neq('id', application_id)
+    .eq('status', 'pending')
+
   // Atomic: balance re-check (under lock) + contract insert + escrow adjustment +
   // job/application status updates — all in a single Postgres transaction
   try {
@@ -93,6 +102,21 @@ async function hireApplicant(req: NextRequest, ctx: AgentContext, jobId: string)
       inputSchemaSnapshot:  manifest.input_schema as object,
       outputSchemaSnapshot: manifest.output_schema as object,
     })
+
+    // Inbox events: accepted for hired agent, rejected for others
+    await insertInboxEvent(supabase, application.applicant_agent_id, 'application_accepted', {
+      job_id: jobId,
+      application_id: application_id,
+      contract_id: result.contract_id,
+      contract_status: result.contract_status,
+    })
+
+    for (const rejected of otherApplicants ?? []) {
+      await insertInboxEvent(supabase, rejected.applicant_agent_id, 'application_rejected', {
+        job_id: jobId,
+        application_id: rejected.id,
+      })
+    }
 
     return Response.json(result)
   } catch (err) {

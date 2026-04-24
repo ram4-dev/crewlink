@@ -1,14 +1,22 @@
 {
   "feature": "dashboard",
-  "local_config": { "supabase": "container" },
+  "local_config": {
+    "supabase": "container"
+  },
   "execution_strategy": "sequential",
-  "stats": { "total": 7, "done": 0, "by_layer": { "1": 7 } },
+  "stats": {
+    "total": 7,
+    "done": 7,
+    "by_layer": {
+      "1": 7
+    }
+  },
   "tasks": [
     {
       "id": "TASK-001",
       "title": "Layout del dashboard + Clerk auth",
       "description": "Crear app/dashboard/layout.tsx con sidebar, navbar, Clerk UserButton. Redirect a /sign-in si no hay sesión. Configurar middleware de Next.js para proteger rutas /dashboard/*.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
       "depends_on": [],
@@ -23,33 +31,43 @@
         "AC-3: Layout usa Tailwind + shadcn/ui",
         "GATE: Dashboard carga sin errores con sesión Clerk"
       ],
-      "references": ["dashboard spec §Stack Frontend"]
+      "references": [
+        "dashboard spec §Stack Frontend"
+      ]
     },
     {
       "id": "TASK-002",
       "title": "Home page (tarjetas resumen + alertas)",
       "description": "Crear app/dashboard/page.tsx: tarjetas con balance, agentes activos, contratos activos, contratos pending_approval con badge. Alerta de balance bajo.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/dashboard/page.tsx"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/dashboard/page.tsx"
+      ],
       "acceptance_criteria": [
         "AC-1: Muestra balance, cantidad de agentes, contratos activos",
         "AC-2: Badge con cantidad de contratos pending_approval",
         "AC-3: Alerta si balance < umbral configurado",
         "GATE: Home page renderiza datos correctos"
       ],
-      "references": ["dashboard spec H-01"]
+      "references": [
+        "dashboard spec H-01"
+      ]
     },
     {
       "id": "TASK-003",
       "title": "Gestión de agentes (lista + detalle + desactivar)",
       "description": "Implementar pages + API: lista agentes del owner, detalle con skills y contratos. PATCH desactivar con bloqueo si tiene contratos abiertos (P0.3 R3 → 409 AGENT_HAS_ACTIVE_CONTRACTS).",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-001"],
+      "depends_on": [
+        "TASK-001"
+      ],
       "files": [
         "src/app/dashboard/agents/page.tsx",
         "src/app/dashboard/agents/[id]/page.tsx",
@@ -62,16 +80,20 @@
         "AC-3: Desactivar sin contratos → 200",
         "GATE: Test desactivación bloqueada con contratos abiertos"
       ],
-      "references": ["dashboard spec H-02, P0.3 R3"]
+      "references": [
+        "dashboard spec H-02, P0.3 R3"
+      ]
     },
     {
       "id": "TASK-004",
       "title": "Gestión de contratos (lista + aprobar + rechazar)",
       "description": "Implementar pages + API: lista contratos filtrable por status (pending_approval primero), detalle con proof. POST approve (→ active + job in_progress). POST reject (→ cancelled + escrow release + job open + applications reactivadas).",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "High",
-      "depends_on": ["TASK-001"],
+      "depends_on": [
+        "TASK-001"
+      ],
       "files": [
         "src/app/dashboard/contracts/page.tsx",
         "src/app/dashboard/contracts/[id]/page.tsx",
@@ -86,33 +108,43 @@
         "AC-4: Solo hiring_agent.owner puede aprobar/rechazar",
         "GATE: Test approve y reject con escrow correcto"
       ],
-      "references": ["dashboard spec H-03, §approve, §reject"]
+      "references": [
+        "dashboard spec H-03, §approve, §reject"
+      ]
     },
     {
       "id": "TASK-005",
       "title": "Página de créditos (balance + historial)",
       "description": "Crear app/dashboard/credits/page.tsx: mostrar balance actual en créditos y USD, historial de transacciones paginado con tipo, monto, fecha. Botón de recarga que redirige a Stripe Checkout.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/dashboard/credits/page.tsx"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/dashboard/credits/page.tsx"
+      ],
       "acceptance_criteria": [
         "AC-1: Muestra balance en créditos y equivalente USD",
         "AC-2: Historial paginado con tipos de transacción",
         "AC-3: Botón de recarga funciona",
         "GATE: Página renderiza datos correctos"
       ],
-      "references": ["dashboard spec H-04"]
+      "references": [
+        "dashboard spec H-04"
+      ]
     },
     {
       "id": "TASK-006",
       "title": "Settings (rotar API Key + threshold)",
       "description": "Crear app/dashboard/settings/page.tsx + APIs: preview de API Key (últimos 4 chars hash), POST /api/dashboard/api-key/rotate (con confirmación), PATCH /api/dashboard/settings para approval_threshold.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-001"],
+      "depends_on": [
+        "TASK-001"
+      ],
       "files": [
         "src/app/dashboard/settings/page.tsx",
         "src/app/api/dashboard/api-key/route.ts",
@@ -126,32 +158,52 @@
         "AC-4: approval_threshold actualizable con validación > 0",
         "GATE: Test rotate + settings pasan"
       ],
-      "references": ["dashboard spec §API Key, §Settings"]
+      "references": [
+        "dashboard spec §API Key, §Settings"
+      ]
     },
     {
       "id": "TASK-007",
       "title": "Realtime subscriptions (Supabase)",
       "description": "Implementar subscripciones Supabase Realtime en el dashboard: nuevos contratos, contratos pending_approval, updates de balance. SWR revalidation on channel events.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-002", "TASK-003", "TASK-004"],
-      "files": ["src/lib/realtime/dashboard-subscriptions.ts"],
+      "depends_on": [
+        "TASK-002",
+        "TASK-003",
+        "TASK-004"
+      ],
+      "files": [
+        "src/lib/realtime/dashboard-subscriptions.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Nuevo contrato pending_approval → dashboard se actualiza sin refresh",
         "AC-2: Completación de contrato → balance se actualiza",
         "AC-3: Channel cleanup en unmount",
         "GATE: Realtime funciona en navegador"
       ],
-      "references": ["dashboard spec §Realtime"]
+      "references": [
+        "dashboard spec §Realtime"
+      ]
     }
   ],
   "dependency_graph": {
     "by_layer": {
       "1": {
-        "level_0": ["TASK-001"],
-        "level_1": ["TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006"],
-        "level_2": ["TASK-007"]
+        "level_0": [
+          "TASK-001"
+        ],
+        "level_1": [
+          "TASK-002",
+          "TASK-003",
+          "TASK-004",
+          "TASK-005",
+          "TASK-006"
+        ],
+        "level_2": [
+          "TASK-007"
+        ]
       }
     }
   }

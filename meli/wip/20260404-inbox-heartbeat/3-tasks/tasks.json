@@ -1,0 +1,353 @@
+{
+  "feature": "inbox-heartbeat",
+  "execution_strategy": "batched",
+  "local_config": {
+    "mysql": null,
+    "kvs": null,
+    "bigqueue": null
+  },
+  "stats": {
+    "total": 13,
+    "done": 13,
+    "by_layer": {
+      "1": 10,
+      "2": 0,
+      "3": 3
+    }
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Create inbox_events database migration",
+      "description": "Create Supabase migration `supabase/migrations/020_inbox_events.sql` with the inbox_events table, partial indexes on (agent_id, created_at) WHERE acknowledged = false, and (agent_id, type) WHERE acknowledged = false. Event IDs use `evt_` prefix.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [],
+      "files": [
+        "supabase/migrations/020_inbox_events.sql"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Table inbox_events created with columns: id (TEXT PK), agent_id (UUID FK), type (VARCHAR 64), payload (JSONB), acknowledged (BOOLEAN), created_at (TIMESTAMPTZ)",
+        "AC-2: Partial index idx_inbox_events_agent_pending on (agent_id, created_at ASC) WHERE acknowledged = false",
+        "AC-3: Partial index idx_inbox_events_agent_type on (agent_id, type) WHERE acknowledged = false",
+        "GATE: Migration applies cleanly on fresh DB"
+      ],
+      "references": [
+        "A-20",
+        "A-21",
+        "A-22"
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Create insertInboxEvent helper function",
+      "description": "Create `src/lib/inbox/insert-event.ts` with a reusable helper that inserts an event into inbox_events. Used by all side-effect tasks. Fire-and-forget within existing transactions.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/lib/inbox/insert-event.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Function accepts supabase client, agentId, type, and payload",
+        "AC-2: Inserts into inbox_events with correct column mapping",
+        "GATE: TypeScript compiles without errors"
+      ],
+      "references": [
+        "A-20"
+      ]
+    },
+    {
+      "id": "TASK-003",
+      "title": "Implement GET /api/agents/me/inbox endpoint",
+      "description": "Create `src/app/api/agents/me/inbox/route.ts` with GET handler. Supports cursor (base64 opaque), types filter (comma-separated), and limit (default 50, max 100). Returns events ordered by created_at ASC with has_more and cursor pagination.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/agents/me/inbox/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Returns only unacknowledged events for the authenticated agent",
+        "AC-2: Cursor pagination works \u2014 passing cursor from previous response returns only newer events",
+        "AC-3: types filter correctly filters by comma-separated event types",
+        "AC-4: has_more is true when there are more events beyond the limit",
+        "AC-5: Invalid cursor returns 400 INVALID_CURSOR",
+        "GATE: curl to endpoint returns correct JSON shape"
+      ],
+      "references": [
+        "A-20",
+        "A-21"
+      ]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Implement POST /api/agents/me/inbox/ack endpoint",
+      "description": "Create `src/app/api/agents/me/inbox/ack/route.ts` with POST handler. Accepts event_ids array, validates ownership, marks as acknowledged. Idempotent for already-acknowledged events.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/agents/me/inbox/ack/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Marks events as acknowledged \u2014 they no longer appear in GET /inbox",
+        "AC-2: Returns 400 MISSING_EVENT_IDS if event_ids is empty",
+        "AC-3: Returns 404 EVENT_NOT_FOUND for non-existent event IDs",
+        "AC-4: Returns 403 AUTHZ_FORBIDDEN for events belonging to another agent",
+        "AC-5: Idempotent \u2014 acknowledging already-acknowledged events succeeds silently",
+        "GATE: curl to endpoint returns { acknowledged: N }"
+      ],
+      "references": [
+        "A-22"
+      ]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Side-effect: apply inserts application_received event",
+      "description": "Modify `src/app/api/jobs/[id]/apply/route.ts` to insert an `application_received` event for the job poster after a successful application. Payload includes job_id, application_id, applicant_agent_id, applicant_name, proposed_price.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-002"
+      ],
+      "files": [
+        "src/app/api/jobs/[id]/apply/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: After successful apply, inbox_events row exists for poster with type application_received",
+        "AC-2: Payload contains job_id, application_id, applicant_agent_id, applicant_name, proposed_price",
+        "GATE: Existing apply tests still pass"
+      ],
+      "references": [
+        "A-23"
+      ]
+    },
+    {
+      "id": "TASK-006",
+      "title": "Side-effect: hire inserts application_accepted and application_rejected events",
+      "description": "Modify `src/app/api/jobs/[id]/hire/route.ts` to insert `application_accepted` for the hired agent and `application_rejected` for all other applicants after a successful hire. Fetch rejected applicants before the atomic RPC changes their status.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [
+        "TASK-002"
+      ],
+      "files": [
+        "src/app/api/jobs/[id]/hire/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: After hire, hired agent gets application_accepted event with contract_id and contract_status",
+        "AC-2: All other pending applicants get application_rejected events",
+        "AC-3: Rejected applicants fetched before RPC to capture correct state",
+        "GATE: Existing hire tests still pass"
+      ],
+      "references": [
+        "A-23"
+      ]
+    },
+    {
+      "id": "TASK-007",
+      "title": "Side-effects: approve, complete, and rate insert inbox events",
+      "description": "Three small changes: (1) approve route inserts contract_active for both agents, (2) complete route inserts contract_completed for hiring agent, (3) rate route inserts contract_rated for hired agent. Each is 3-5 lines of code.",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-002"
+      ],
+      "files": [
+        "src/app/api/dashboard/contracts/[id]/approve/route.ts",
+        "src/app/api/contracts/[id]/complete/route.ts",
+        "src/app/api/contracts/[id]/rate/route.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Approve inserts contract_active for both hiring_agent_id and hired_agent_id",
+        "AC-2: Complete inserts contract_completed for hiring_agent_id with proof_summary (first 200 chars)",
+        "AC-3: Rate inserts contract_rated for hired_agent_id with rating value",
+        "AC-4: Approve route SELECT includes hired_agent_id (add to existing select)",
+        "GATE: Existing tests still pass"
+      ],
+      "references": [
+        "A-23"
+      ]
+    },
+    {
+      "id": "TASK-008",
+      "title": "Create cron purge-inbox endpoint",
+      "description": "Create `src/app/api/cron/purge-inbox/route.ts` that deletes acknowledged events older than 7 days. Protected with CRON_SECRET. Add cron config to vercel.json (create if needed).",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/cron/purge-inbox/route.ts",
+        "vercel.json"
+      ],
+      "acceptance_criteria": [
+        "AC-1: DELETE FROM inbox_events WHERE acknowledged = true AND created_at < NOW() - 7 days",
+        "AC-2: Endpoint validates CRON_SECRET authorization header",
+        "AC-3: vercel.json includes cron entry for /api/cron/purge-inbox at 0 3 * * *",
+        "GATE: Endpoint returns purge count on success"
+      ],
+      "references": []
+    },
+    {
+      "id": "TASK-009",
+      "title": "Critical unit tests for inbox endpoints",
+      "description": "Write critical-path integration tests for GET /inbox and POST /inbox/ack. Cover: basic retrieval, cursor pagination, types filter, acknowledge flow, ownership isolation, error cases (invalid cursor, foreign events).",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [
+        "TASK-003",
+        "TASK-004"
+      ],
+      "files": [
+        "src/__tests__/inbox.test.ts"
+      ],
+      "acceptance_criteria": [
+        "AC-1: Test GET /inbox returns only unacknowledged events for authenticated agent",
+        "AC-2: Test cursor pagination returns only events after cursor",
+        "AC-3: Test types filter correctly narrows results",
+        "AC-4: Test POST /ack marks events as acknowledged",
+        "AC-5: Test ownership isolation (agent A cannot see agent B events)",
+        "AC-6: Test error cases: invalid cursor, missing event_ids, foreign event",
+        "GATE: All tests pass"
+      ],
+      "references": [
+        "A-20",
+        "A-21",
+        "A-22"
+      ]
+    },
+    {
+      "id": "TASK-010",
+      "title": "Update 7 skill docs with inbox heartbeat",
+      "description": "Apply all skill doc changes from the technical spec: index.md (new section), employer.md (state machine, Steps 4-5, inbox reference), employer-rules.md (inbox rules), employer-runbook.md (heartbeat rhythm), worker.md (state machine, Step 4, inbox reference), worker-rules.md (inbox rules), worker-runbook.md (heartbeat rhythm).",
+      "status": "completed",
+      "layer": 1,
+      "complexity": "Medium",
+      "depends_on": [],
+      "files": [
+        "skills/index.md",
+        "skills/employer.md",
+        "skills/employer-rules.md",
+        "skills/employer-runbook.md",
+        "skills/worker.md",
+        "skills/worker-rules.md",
+        "skills/worker-runbook.md"
+      ],
+      "acceptance_criteria": [
+        "AC-1: index.md has new 'Staying informed \u2014 the Inbox' section",
+        "AC-2: employer.md Steps 4-5 rewritten to use inbox; inbox reference section added; persistence format includes inbox_cursor",
+        "AC-3: employer-rules.md has Inbox rules section after Security rules",
+        "AC-4: employer-runbook.md renamed to Heartbeat rhythm; minimal loop steps 2 and 6 updated",
+        "AC-5: worker.md Step 4 rewritten to use inbox; inbox reference section added; persistence format includes inbox_cursor",
+        "AC-6: worker-rules.md has Inbox rules section after Security rules",
+        "AC-7: worker-runbook.md renamed to Heartbeat rhythm; minimal loop steps 4, 5, 6 updated",
+        "GATE: All {{BASE_URL}} placeholders preserved correctly"
+      ],
+      "references": [
+        "A-20",
+        "A-23"
+      ]
+    },
+    {
+      "id": "TASK-011",
+      "title": "Code Review",
+      "description": "Run meli-code-reviewer skill on all modified files. Verify patterns, naming, error handling, and consistency with existing codebase conventions.",
+      "status": "completed",
+      "layer": 3,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-010"
+      ],
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: All findings resolved or acknowledged",
+        "GATE: meli-code-reviewer verdict passes"
+      ],
+      "references": []
+    },
+    {
+      "id": "TASK-012",
+      "title": "Performance Review",
+      "description": "Run meli-performance-expert skill. Verify inbox query uses partial indexes efficiently, cursor pagination avoids full table scans, no N+1 in side-effect inserts.",
+      "status": "completed",
+      "layer": 3,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-010"
+      ],
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: Inbox GET query plan confirms index usage",
+        "AC-2: No N+1 query patterns in side-effects",
+        "GATE: meli-performance-expert verdict passes"
+      ],
+      "references": []
+    },
+    {
+      "id": "TASK-013",
+      "title": "Security Review",
+      "description": "Run meli-security-expert skill with ApplicationSecurityMCP. Verify agent ownership isolation, no data leakage between agents, CRON_SECRET validation on purge endpoint.",
+      "status": "completed",
+      "layer": 3,
+      "complexity": "Low",
+      "depends_on": [
+        "TASK-010"
+      ],
+      "files": [],
+      "acceptance_criteria": [
+        "AC-1: Agent A cannot read/ack agent B events",
+        "AC-2: CRON_SECRET properly validated",
+        "AC-3: ApplicationSecurityMCP list_security_issues called",
+        "GATE: meli-security-expert verdict passes"
+      ],
+      "references": []
+    }
+  ],
+  "dependency_graph": {
+    "by_layer": {
+      "1": {
+        "level_0": [
+          "TASK-001",
+          "TASK-010"
+        ],
+        "level_1": [
+          "TASK-002",
+          "TASK-003",
+          "TASK-004",
+          "TASK-008"
+        ],
+        "level_2": [
+          "TASK-005",
+          "TASK-006",
+          "TASK-007",
+          "TASK-009"
+        ]
+      },
+      "3": {
+        "level_0": [
+          "TASK-011",
+          "TASK-012",
+          "TASK-013"
+        ]
+      }
+    }
+  }
+}

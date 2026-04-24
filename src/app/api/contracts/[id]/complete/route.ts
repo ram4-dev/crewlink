@@ -5,6 +5,7 @@ import { completeContractAndSettle } from '@/lib/credits/escrow'
 import { calculatePlatformFee } from '@/lib/contracts/platform-fee'
 import { validateProof } from '@/lib/contracts/proof-validator'
 import { apiError } from '@/lib/errors'
+import { insertInboxEvent } from '@/lib/inbox/insert-event'
 
 async function completeContract(req: NextRequest, ctx: AgentContext, contractId: string) {
   let body: unknown
@@ -55,6 +56,14 @@ async function completeContract(req: NextRequest, ctx: AgentContext, contractId:
     if (result === 'already_completed') {
       return Response.json({ message: 'Contract already completed' })
     }
+
+    // Inbox: contract_completed for the hiring agent
+    const proofSummary = JSON.stringify(proof).slice(0, 200)
+    await insertInboxEvent(supabase, contract.hiring_agent_id, 'contract_completed', {
+      contract_id: contractId,
+      job_id: contract.job_id,
+      proof_summary: proofSummary,
+    })
 
     return Response.json({
       message: 'Contract completed',

@@ -1,14 +1,22 @@
 {
   "feature": "jobs-applications",
-  "local_config": { "supabase": "container" },
+  "local_config": {
+    "supabase": "container"
+  },
   "execution_strategy": "sequential",
-  "stats": { "total": 7, "done": 0, "by_layer": { "1": 7 } },
+  "stats": {
+    "total": 7,
+    "done": 7,
+    "by_layer": {
+      "1": 7
+    }
+  },
   "tasks": [
     {
       "id": "TASK-001",
       "title": "POST /api/jobs — Crear job con escrow hold",
       "description": "Implementar creación de job: validar balance SERIALIZABLE (SELECT FOR UPDATE), calcular depth_level con parent_contract_id, debitar escrow_hold, insertar credit_transaction con job_id. Tags opcionales.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "High",
       "depends_on": [],
@@ -23,33 +31,43 @@
         "AC-4: depth_level calculado correctamente con parent_contract_id",
         "GATE: Test crear job con escrow pasa; ledger reconcilia"
       ],
-      "references": ["jobs-applications spec §POST /api/jobs"]
+      "references": [
+        "jobs-applications spec §POST /api/jobs"
+      ]
     },
     {
       "id": "TASK-002",
       "title": "GET /api/jobs — Listar jobs abiertos con filtros",
       "description": "Implementar listado de jobs: filtros por tags (<@), budget_min, budget_max. Solo status=open, deadline futuro. Excluir jobs propios. Paginación limit/offset.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/api/jobs/route.ts"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/jobs/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Solo retorna jobs con status=open",
         "AC-2: Filtro tags funciona con <@ operator",
         "AC-3: No retorna jobs del agente que busca",
         "GATE: Test listado con filtros pasa"
       ],
-      "references": ["jobs-applications spec §GET /api/jobs"]
+      "references": [
+        "jobs-applications spec §GET /api/jobs"
+      ]
     },
     {
       "id": "TASK-003",
       "title": "POST /api/jobs/:id/apply — Aplicar con manifest obligatorio",
       "description": "Implementar aplicación: manifest_id obligatorio (P0.2 R2), validar ownership del manifest, no auto-aplicación, no duplicados. GET /api/jobs/:id/applications para el poster.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-002"],
+      "depends_on": [
+        "TASK-002"
+      ],
       "files": [
         "src/app/api/jobs/[id]/apply/route.ts",
         "src/app/api/jobs/[id]/applications/route.ts"
@@ -62,16 +80,20 @@
         "AC-5: Lista de applications incluye rating_avg, contracts_completed_count, ratings_count",
         "GATE: Tests de apply + list applications pasan"
       ],
-      "references": ["jobs-applications spec §POST apply, §GET applications"]
+      "references": [
+        "jobs-applications spec §POST apply, §GET applications"
+      ]
     },
     {
       "id": "TASK-004",
       "title": "POST /api/jobs/:id/hire — Contratar con escrow adjust y snapshot",
       "description": "Implementar contratación SERIALIZABLE: validar fondos con FOR UPDATE si diff>0 (P1.2 R3), ajustar escrow (solo diferencia), crear contrato con snapshot del manifest (endpoint_url, pricing, schemas), determinar status (pending_approval vs active), rechazar otras applications.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "High",
-      "depends_on": ["TASK-003"],
+      "depends_on": [
+        "TASK-003"
+      ],
       "files": [
         "src/app/api/jobs/[id]/hire/route.ts",
         "src/lib/credits/escrow.ts"
@@ -85,50 +107,66 @@
         "AC-6: Idempotente si ya existe contrato para el job",
         "GATE: Test hire con escrow adjust + snapshot pasa"
       ],
-      "references": ["jobs-applications spec §POST hire"]
+      "references": [
+        "jobs-applications spec §POST hire"
+      ]
     },
     {
       "id": "TASK-005",
       "title": "DELETE /api/jobs/:id — Cancelar job con escrow release",
       "description": "Implementar cancelación: solo jobs open, devolver budget_credits al owner, insertar credit_transaction escrow_release. Idempotente si ya cancelado.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/api/jobs/[id]/route.ts"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/jobs/[id]/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Job open → cancelado + escrow devuelto",
         "AC-2: Job in_progress → 409 JOB_NOT_OPEN",
         "AC-3: Job ya cancelado → 200 idempotente",
         "GATE: Test cancelación + escrow release pasa"
       ],
-      "references": ["jobs-applications spec §DELETE /api/jobs/:id"]
+      "references": [
+        "jobs-applications spec §DELETE /api/jobs/:id"
+      ]
     },
     {
       "id": "TASK-006",
       "title": "Anti-recursividad (depth_level + cycle detection)",
       "description": "Implementar detectCycle para detectar loops A→B→C→A en cadenas de subcontratación. Integrar en hire flow. MAX_AGENT_CHAIN_DEPTH configurable (default 3).",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-004"],
-      "files": ["src/lib/jobs/cycle-detection.ts"],
+      "depends_on": [
+        "TASK-004"
+      ],
+      "files": [
+        "src/lib/jobs/cycle-detection.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: depth_level > MAX → 400 CHAIN_DEPTH_EXCEEDED",
         "AC-2: Ciclo A→B→C→A detectado → 409 CYCLE_DETECTED",
         "AC-3: Cadena válida A→B→C pasa sin error",
         "GATE: Test cycle detection con cadena circular pasa"
       ],
-      "references": ["jobs-applications spec §Anti-Recursividad"]
+      "references": [
+        "jobs-applications spec §Anti-Recursividad"
+      ]
     },
     {
       "id": "TASK-007",
       "title": "Tests críticos de jobs-applications",
       "description": "Tests: escrow hold/release correcto, ajuste por diferencia, snapshot preservado, idempotencia hire/cancel, ledger reconciliation post-operaciones, cycle detection.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-006"],
+      "depends_on": [
+        "TASK-006"
+      ],
       "files": [
         "src/__tests__/jobs/escrow.test.ts",
         "src/__tests__/jobs/hire.test.ts",
@@ -140,18 +178,33 @@
         "AC-3: Test cycle detection cubre A→B→C→A",
         "GATE: vitest run pasa todos los tests de jobs"
       ],
-      "references": ["jobs-applications spec §Testing"]
+      "references": [
+        "jobs-applications spec §Testing"
+      ]
     }
   ],
   "dependency_graph": {
     "by_layer": {
       "1": {
-        "level_0": ["TASK-001"],
-        "level_1": ["TASK-002", "TASK-005"],
-        "level_2": ["TASK-003"],
-        "level_3": ["TASK-004"],
-        "level_4": ["TASK-006"],
-        "level_5": ["TASK-007"]
+        "level_0": [
+          "TASK-001"
+        ],
+        "level_1": [
+          "TASK-002",
+          "TASK-005"
+        ],
+        "level_2": [
+          "TASK-003"
+        ],
+        "level_3": [
+          "TASK-004"
+        ],
+        "level_4": [
+          "TASK-006"
+        ],
+        "level_5": [
+          "TASK-007"
+        ]
       }
     }
   }

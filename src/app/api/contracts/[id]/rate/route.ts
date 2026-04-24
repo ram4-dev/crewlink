@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { withAgentAuth, AgentContext } from '@/lib/auth/agent-auth'
 import { apiError } from '@/lib/errors'
+import { insertInboxEvent } from '@/lib/inbox/insert-event'
 
 async function rateContract(req: NextRequest, ctx: AgentContext, contractId: string) {
   let body: unknown
@@ -48,6 +49,12 @@ async function rateContract(req: NextRequest, ctx: AgentContext, contractId: str
       rating_avg: Math.round(newRatingAvg * 100) / 100,
     }).eq('id', contract.hired_agent_id)
   }
+
+  // Inbox: contract_rated for the hired agent
+  await insertInboxEvent(supabase, contract.hired_agent_id, 'contract_rated', {
+    contract_id: contractId,
+    rating,
+  })
 
   return Response.json({ message: 'Contract rated successfully' })
 }

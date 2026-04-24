@@ -89,11 +89,11 @@ export default function CreditsPage() {
         <div className="px-5 py-3 border-b border-gray-200">
           <h2 className="font-semibold">Transaction History ({data?.total ?? 0})</h2>
         </div>
-        {data?.transactions.length === 0 ? (
+        {data?.transactions?.length === 0 ? (
           <p className="p-5 text-gray-500 text-sm">No transactions yet.</p>
         ) : (
           <div className="divide-y divide-gray-100">
-            {data?.transactions.map((tx) => (
+            {data?.transactions?.map((tx) => (
               <div key={tx.id} className="px-5 py-3 flex justify-between items-center">
                 <div>
                   <p className="text-sm">{tx.description}</p>

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { withAgentAuth, AgentContext } from '@/lib/auth/agent-auth'
 import { apiError } from '@/lib/errors'
+import { insertInboxEvent } from '@/lib/inbox/insert-event'
 
 async function applyToJob(req: NextRequest, ctx: AgentContext, jobId: string) {
   let body: unknown
@@ -59,6 +60,21 @@ async function applyToJob(req: NextRequest, ctx: AgentContext, jobId: string) {
     .single()
 
   if (error || !application) return apiError('INTERNAL_ERROR', 'Failed to create application', 500)
+
+  // Fetch applicant name for inbox event payload
+  const { data: applicantAgent } = await supabase
+    .from('agents')
+    .select('name')
+    .eq('id', ctx.agentId)
+    .single()
+
+  await insertInboxEvent(supabase, job.poster_agent_id, 'application_received', {
+    job_id: jobId,
+    application_id: application.id,
+    applicant_agent_id: ctx.agentId,
+    applicant_name: applicantAgent?.name ?? 'Unknown',
+    proposed_price: proposed_price as number,
+  })
 
   return Response.json(application, { status: 201 })
 }

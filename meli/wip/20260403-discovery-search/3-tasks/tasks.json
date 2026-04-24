@@ -1,18 +1,28 @@
 {
   "feature": "discovery-search",
-  "local_config": { "supabase": "container" },
+  "local_config": {
+    "supabase": "container"
+  },
   "execution_strategy": "sequential",
-  "stats": { "total": 4, "done": 0, "by_layer": { "1": 4 } },
+  "stats": {
+    "total": 4,
+    "done": 4,
+    "by_layer": {
+      "1": 4
+    }
+  },
   "tasks": [
     {
       "id": "TASK-001",
       "title": "GET /api/agents/search — Tags + filtros SQL",
       "description": "Implementar endpoint de búsqueda con filtros: tags (AND), min_rating, max_price (solo per_task, P1.1), pricing_type. Query con DISTINCT ON agent_id. Paginación limit/offset. Excluir agente que busca.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
       "depends_on": [],
-      "files": ["src/app/api/agents/search/route.ts"],
+      "files": [
+        "src/app/api/agents/search/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Filtro por tags retorna solo agentes con TODOS los tags",
         "AC-2: max_price filtra solo per_task; per_1k_tokens siempre pasa",
@@ -20,33 +30,43 @@
         "AC-4: Agente no aparece en sus propios resultados",
         "GATE: Test de búsqueda con filtros combinados pasa"
       ],
-      "references": ["discovery-search spec §Capa 1"]
+      "references": [
+        "discovery-search spec §Capa 1"
+      ]
     },
     {
       "id": "TASK-002",
       "title": "Full-text search en español (FTS)",
       "description": "Integrar búsqueda full-text usando plainto_tsquery('spanish', q) contra fts_vector. Combinar con filtro de tags (q busca en FTS + tag match). Ordenar por ts_rank + rating_avg.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/api/agents/search/route.ts"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/agents/search/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Query 'factura' matchea manifests con 'facturas' (stemming español)",
         "AC-2: Resultados ordenados por relevancia FTS + rating",
         "AC-3: Sin q → solo filtros de tags/rating/pricing",
         "GATE: Test FTS con términos en español pasa"
       ],
-      "references": ["discovery-search spec §Capa 2"]
+      "references": [
+        "discovery-search spec §Capa 2"
+      ]
     },
     {
       "id": "TASK-003",
       "title": "Búsqueda semántica con pgvector (feature flag)",
       "description": "Implementar capa semántica: si semantic=true AND feature flag activo AND total_agents > 50, generar embedding del query y usar cosine similarity con pgvector. Fallback silencioso a FTS si no disponible.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
-      "depends_on": ["TASK-002"],
+      "depends_on": [
+        "TASK-002"
+      ],
       "files": [
         "src/app/api/agents/search/route.ts",
         "src/lib/search/semantic.ts"
@@ -57,33 +77,49 @@
         "AC-3: Menos de 50 agentes → usa FTS aunque semantic=true",
         "GATE: Test fallback semántico → FTS pasa"
       ],
-      "references": ["discovery-search spec §Capa 3"]
+      "references": [
+        "discovery-search spec §Capa 3"
+      ]
     },
     {
       "id": "TASK-004",
       "title": "Tests de discovery-search",
       "description": "Tests de integración: búsqueda por tag, multi-tag AND, min_rating, max_price solo per_task, pricing_type, FTS español, resultados no exponen datos sensibles.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-003"],
-      "files": ["src/__tests__/search/discovery.test.ts"],
+      "depends_on": [
+        "TASK-003"
+      ],
+      "files": [
+        "src/__tests__/search/discovery.test.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Multi-tag AND retorna solo agentes con todos los tags",
         "AC-2: max_price + per_1k_tokens no filtrado",
         "AC-3: Resultados sin owner_user_id ni hashes",
         "GATE: vitest run pasa todos los tests de search"
       ],
-      "references": ["discovery-search spec §Testing"]
+      "references": [
+        "discovery-search spec §Testing"
+      ]
     }
   ],
   "dependency_graph": {
     "by_layer": {
       "1": {
-        "level_0": ["TASK-001"],
-        "level_1": ["TASK-002"],
-        "level_2": ["TASK-003"],
-        "level_3": ["TASK-004"]
+        "level_0": [
+          "TASK-001"
+        ],
+        "level_1": [
+          "TASK-002"
+        ],
+        "level_2": [
+          "TASK-003"
+        ],
+        "level_3": [
+          "TASK-004"
+        ]
       }
     }
   }

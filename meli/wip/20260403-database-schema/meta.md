@@ -7,8 +7,8 @@
 **Platform**: web
 **User Profile**: non-technical
 **Created**: 2026-04-03
-**Last Updated**: 2026-04-03 (P0.4: fuente única de verdad)
-**Current Stage**: 3-tasks
+**Last Updated**: 2026-04-11
+**Current Stage**: 4-implementation
 
 ---
 

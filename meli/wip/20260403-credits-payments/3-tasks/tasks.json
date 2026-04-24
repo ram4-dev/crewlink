@@ -1,14 +1,22 @@
 {
   "feature": "credits-payments",
-  "local_config": { "supabase": "container" },
+  "local_config": {
+    "supabase": "container"
+  },
   "execution_strategy": "sequential",
-  "stats": { "total": 5, "done": 0, "by_layer": { "1": 5 } },
+  "stats": {
+    "total": 5,
+    "done": 5,
+    "by_layer": {
+      "1": 5
+    }
+  },
   "tasks": [
     {
       "id": "TASK-001",
       "title": "POST /api/dashboard/credits/topup — Stripe Checkout",
       "description": "Implementar recarga de créditos: verificar sesión, crear/reutilizar stripe_customer_id, crear Checkout session con metadata (user_id, credits_amount), retornar checkout_url. CREDITS_PER_USD configurable.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Medium",
       "depends_on": [],
@@ -22,17 +30,23 @@
         "AC-3: metadata contiene user_id y credits_amount correctos",
         "GATE: Test con Stripe test mode retorna URL"
       ],
-      "references": ["credits-payments spec §POST topup"]
+      "references": [
+        "credits-payments spec §POST topup"
+      ]
     },
     {
       "id": "TASK-002",
       "title": "POST /api/webhooks/stripe — Webhook idempotente atómico",
       "description": "Implementar webhook Stripe: verificar firma, checkout.session.completed → INSERT ON CONFLICT (stripe_session_id) DO NOTHING (P0.2 R3). Solo acreditar si INSERT efectuó. SERIALIZABLE.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "High",
-      "depends_on": ["TASK-001"],
-      "files": ["src/app/api/webhooks/stripe/route.ts"],
+      "depends_on": [
+        "TASK-001"
+      ],
+      "files": [
+        "src/app/api/webhooks/stripe/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Firma inválida → 400",
         "AC-2: Evento válido → créditos acreditados + credit_transaction con stripe_session_id",
@@ -40,34 +54,42 @@
         "AC-4: user_id validado contra DB",
         "GATE: Test webhook idempotente pasa"
       ],
-      "references": ["credits-payments spec §POST webhooks/stripe"]
+      "references": [
+        "credits-payments spec §POST webhooks/stripe"
+      ]
     },
     {
       "id": "TASK-003",
       "title": "GET /api/dashboard/credits — Balance e historial",
       "description": "Implementar consulta de balance y transacciones paginadas. Mostrar balance en créditos y USD equivalente. Solo transacciones del usuario autenticado.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
       "depends_on": [],
-      "files": ["src/app/api/dashboard/credits/route.ts"],
+      "files": [
+        "src/app/api/dashboard/credits/route.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: Retorna balance_credits y balance_usd correctos",
         "AC-2: Transacciones paginadas del usuario autenticado",
         "AC-3: Incluye todos los tipos de transacción con description",
         "GATE: Test balance e historial pasan"
       ],
-      "references": ["credits-payments spec §GET credits"]
+      "references": [
+        "credits-payments spec §GET credits"
+      ]
     },
     {
       "id": "TASK-004",
       "title": "Helpers de créditos (holdJobEscrow, adjustEscrow, settle, release)",
       "description": "Implementar los 5 helpers: holdJobEscrow (FOR UPDATE + validar balance), adjustEscrowForHire (FOR UPDATE si diff>0), settleCompletedContract (net_payment + fee user_id=null), releaseJobEscrow, releaseContractEscrowOnReject. Todos SERIALIZABLE.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "High",
       "depends_on": [],
-      "files": ["src/lib/credits/escrow.ts"],
+      "files": [
+        "src/lib/credits/escrow.ts"
+      ],
       "acceptance_criteria": [
         "AC-1: holdJobEscrow valida balance con FOR UPDATE antes de debitar",
         "AC-2: adjustEscrowForHire valida balance con FOR UPDATE cuando diff > 0",
@@ -75,16 +97,21 @@
         "AC-4: releaseJobEscrow y releaseContractEscrowOnReject devuelven créditos correctamente",
         "GATE: Tests unitarios de cada helper pasan; ledger reconcilia"
       ],
-      "references": ["credits-payments spec §Operaciones de Créditos"]
+      "references": [
+        "credits-payments spec §Operaciones de Créditos"
+      ]
     },
     {
       "id": "TASK-005",
       "title": "Tests críticos de credits-payments",
       "description": "Tests: holdEscrow con balance insuficiente, webhook idempotente bajo doble delivery, race condition dos holdEscrow simultáneos, reconciliación ledger tras operaciones completas.",
-      "status": "pending",
+      "status": "completed",
       "layer": 1,
       "complexity": "Low",
-      "depends_on": ["TASK-002", "TASK-004"],
+      "depends_on": [
+        "TASK-002",
+        "TASK-004"
+      ],
       "files": [
         "src/__tests__/credits/escrow.test.ts",
         "src/__tests__/credits/webhook.test.ts"
@@ -95,15 +122,25 @@
         "AC-3: sum(credit_transactions) = credits_balance para cada usuario",
         "GATE: vitest run pasa todos los tests de credits"
       ],
-      "references": ["credits-payments spec §Testing"]
+      "references": [
+        "credits-payments spec §Testing"
+      ]
     }
   ],
   "dependency_graph": {
     "by_layer": {
       "1": {
-        "level_0": ["TASK-001", "TASK-003", "TASK-004"],
-        "level_1": ["TASK-002"],
-        "level_2": ["TASK-005"]
+        "level_0": [
+          "TASK-001",
+          "TASK-003",
+          "TASK-004"
+        ],
+        "level_1": [
+          "TASK-002"
+        ],
+        "level_2": [
+          "TASK-005"
+        ]
       }
     }
   }

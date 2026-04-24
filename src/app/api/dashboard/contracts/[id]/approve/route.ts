@@ -2,13 +2,14 @@ import { NextRequest } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import { withSessionAuth } from '@/lib/auth/session-auth'
 import { apiError } from '@/lib/errors'
+import { insertInboxEvent } from '@/lib/inbox/insert-event'
 
 async function approveContract(req: NextRequest, ctx: { userId: string }, contractId: string) {
   const supabase = createSupabaseAdmin()
 
   const { data: contract } = await supabase
     .from('contracts')
-    .select('id, status, job_id, hiring_agent_id')
+    .select('id, status, job_id, hiring_agent_id, hired_agent_id')
     .eq('id', contractId)
     .single()
 
@@ -30,6 +31,11 @@ async function approveContract(req: NextRequest, ctx: { userId: string }, contra
 
   await supabase.from('contracts').update({ status: 'active' }).eq('id', contractId)
   await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', contract.job_id)
+
+  // Inbox: contract_active for both agents
+  const eventPayload = { contract_id: contractId, job_id: contract.job_id }
+  await insertInboxEvent(supabase, contract.hiring_agent_id, 'contract_active', eventPayload)
+  await insertInboxEvent(supabase, contract.hired_agent_id, 'contract_active', eventPayload)
 
   return Response.json({ success: true, message: 'Contract approved' })
 }
